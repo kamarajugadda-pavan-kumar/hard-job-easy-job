@@ -1,202 +1,88 @@
 import asyncio
 import json
+import urllib.parse
 from playwright.async_api import async_playwright
 
-
-async def scrape(base_url: str, max_pages: int = 10) -> list[dict]:
-    jobs = []
+async def scrape(base_url: str, filters: dict | None = None, max_pages: int = 10) -> list[dict]:
+    results = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=False  # Change to True after debugging
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(
+            viewport={"width": 1280, "height": 900},
+            user_agent=("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"),
         )
-
-        context = await browser.new_context()
-
         page = await context.new_page()
 
-        print("Opening EY careers page...")
+        await page.goto(base_url)
+        await page.wait_for_load_state("networkidle")
+        await page.wait_for_selector('tr.data-row', timeout=15000)
 
-        await page.goto(
-            base_url,
-            wait_until="networkidle",
-            timeout=60000
-        )
+        current_page = 0
 
-        # Give JS time to hydrate/render
-        await page.wait_for_timeout(5000)
+        while current_page < max_pages:
+            await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            await page.wait_for_timeout(1500)
 
-        # Scroll to trigger lazy loading if needed
-        await page.mouse.wheel(0, 5000)
-
-        await page.wait_for_timeout(3000)
-
-        page_number = 1
-
-        while page_number <= max_pages:
-
-            print(f"\nScraping page {page_number}...")
-
-            # DEBUGGING:
-            # Print all visible text if selectors fail
-            # print(await page.locator("body").inner_text())
-
-            # Multiple possible selectors because EY changes DOM often
-            selectors = [
-                'li[id^="job"]',
-                'li.jobs-list-item',
-                '.job',
-                '.job-listing',
-                'tr.data-row'
+            job_card_candidates = [
+                'tr.data-row', '(class*="job"), (class*="position"), article, li'
             ]
-
             job_cards = []
 
-            for selector in selectors:
-                cards = await page.query_selector_all(selector)
-
-                if cards:
-                    print(f"Using selector: {selector}")
-                    job_cards = cards
+            for selector in job_card_candidates:
+                job_cards = await page.query_selector_all(selector)
+                if job_cards:
                     break
 
-            if not job_cards:
-                print("No job cards found.")
-                break
-
-            print(f"Found {len(job_cards)} jobs")
+            if len(job_cards) == 0:
+                print("[DEBUG] page title:", await page.title(), file=__import__('sys').stderr)
+                print("[DEBUG] body excerpt:", (await page.content())[:2000], file=__import__('sys').stderr)
+                raise RuntimeError("No job cards found — selectors need updating")
 
             for card in job_cards:
+                try:
+                    title_elem = await card.query_selector('a.jobTitle-link')
+                    title = await title_elem.inner_text() if title_elem else None
 
-                # Try multiple title selectors
-                title_selectors = [
-                    '.jobTitle a.jobTitle-link',
-                    'a.jobTitle-link',
-                    'a[href*="/job/"]',
-                    'a'
-                ]
+                    url_elem = await card.query_selector('a.jobTitle-link')
+                    url = urllib.parse.urljoin(base_url, await url_elem.get_attribute('href')) if url_elem else None
 
-                title = ""
-                url = ""
+                    location_elem = await card.query_selector('span.jobLocation')
+                    location = await location_elem.inner_text() if location_elem else None
 
-                for ts in title_selectors:
-                    title_el = await card.query_selector(ts)
+                    # Set values that are not provided on the page to None
+                    company = description = posted_date = job_type = None
 
-                    if title_el:
-                        try:
-                            title = (await title_el.inner_text()).strip()
-                            url = await title_el.get_attribute("href")
+                    results.append({
+                        'title': title,
+                        'url': url,
+                        'company': company,
+                        'location': location,
+                        'description': description,
+                        'posted_date': posted_date,
+                        'job_type': job_type
+                    })
+                except Exception as e:
+                    print("[DEBUG] Error extracting job:", e, file=__import__('sys').stderr)
 
-                            if url and url.startswith("/"):
-                                url = f"https://careers.ey.com{url}"
-
-                            if title:
-                                break
-
-                        except Exception:
-                            pass
-
-                # Location
-                location = ""
-
-                location_selectors = [
-                    '.jobLocation',
-                    '.location',
-                    '[data-th="Location"]'
-                ]
-
-                for ls in location_selectors:
-                    loc_el = await card.query_selector(ls)
-
-                    if loc_el:
-                        try:
-                            location = (await loc_el.inner_text()).strip()
-
-                            if location:
-                                break
-
-                        except Exception:
-                            pass
-
-                # Skip empty cards
-                if not title:
-                    continue
-
-                jobs.append({
-                    "title": title,
-                    "url": url,
-                    "company": "EY",
-                    "location": location,
-                    "description": "",
-                    "posted_date": "",
-                    "job_type": "Consulting"
-                })
-
-                print(f"Collected: {title}")
-
-            # Pagination
-            next_selectors = [
-                '.pagination a[aria-label="Next Page"]',
-                'a[aria-label="Next"]',
-                'a.next',
-                'button[aria-label="Next Page"]'
-            ]
-
-            next_btn = None
-
-            for ns in next_selectors:
-                btn = await page.query_selector(ns)
-
-                if btn:
-                    next_btn = btn
-                    break
-
-            if not next_btn:
-                print("No next page button found.")
+            next_button = await page.query_selector('.pagination a[aria-label="Next"]')
+            if not next_button:
                 break
-
-            try:
-                print("Going to next page...")
-
-                await next_btn.click()
-
-                await page.wait_for_load_state("networkidle")
-
-                await page.wait_for_timeout(4000)
-
-                # Scroll again after pagination
-                await page.mouse.wheel(0, 5000)
-
-                await page.wait_for_timeout(2000)
-
-                page_number += 1
-
-            except Exception as e:
-                print(f"Pagination failed: {e}")
-                break
+            await next_button.click()
+            await page.wait_for_selector("tr.data-row", state="attached", timeout=10000)
+            await page.wait_for_timeout(800)  # Bot protection
+            current_page += 1
 
         await browser.close()
 
-    return jobs
-
+    return results
 
 async def main():
-
-    base_url = (
-        "https://careers.ey.com/ey/search/"
-        "?createNewAlert=false"
-        "&q="
-        "&optionsFacetsDD_customfield1=Consulting"
-        "&optionsFacetsDD_country=IN"
-        "&optionsFacetsDD_city="
-    )
-
-    result = await scrape(base_url)
-
-    print("\n==================== FINAL RESULTS ====================\n")
-
-    print(json.dumps(result, indent=2))
-
+    url = "https://careers.ey.com/ey/search/?createNewAlert=false&q=&optionsFacetsDD_customfield1=Consulting&optionsFacetsDD_country=IN&optionsFacetsDD_city="
+    results = await scrape(url)
+    print(json.dumps(results, ensure_ascii=False))
 
 if __name__ == "__main__":
     asyncio.run(main())

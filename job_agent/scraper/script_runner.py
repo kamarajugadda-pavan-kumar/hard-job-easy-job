@@ -82,7 +82,6 @@ class ScraperFactory:
                 analysis, screenshot, html,
                 previous_script=previous_script,
                 previous_error=previous_error,
-                version=attempt,
             )
 
             print(f"[{attempt}/{self.max_attempts}] Running scraper...")
@@ -95,24 +94,25 @@ class ScraperFactory:
             print(f"  Failed: {result.error.splitlines()[0]}")
             previous_script = path.read_text()
             previous_error  = result.error
+            self._dump_attempt(attempt, previous_script, previous_error)
 
-        self._dump_debug(previous_script, previous_error)
         raise RuntimeError(
             f"ScraperFactory: all {self.max_attempts} attempts failed for {self.url}.\n"
-            f"Debug info saved to data/scrapers/debug/"
+            f"Debug logs saved to data/scrapers/debug/"
         )
 
-    def _dump_debug(self, last_script: str, last_error: str) -> None:
+    def _dump_attempt(self, attempt: int, script: str, error: str) -> None:
         from datetime import datetime
-        debug_dir  = Path("data/scrapers/debug")
+        debug_dir = Path("data/scrapers/debug")
         debug_dir.mkdir(parents=True, exist_ok=True)
-        slug       = self.url.replace("https://", "").replace("/", "_")[:40]
-        ts         = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        debug_file = debug_dir / f"{slug}_{ts}.json"
+        slug      = self.url.replace("https://", "").replace("/", "_")[:40]
+        ts        = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        debug_file = debug_dir / f"{slug}_attempt{attempt}_{ts}.json"
         debug_file.write_text(json.dumps({
-            "url":         self.url,
-            "last_script": last_script,
-            "last_error":  last_error,
+            "url":     self.url,
+            "attempt": attempt,
+            "script":  script,
+            "error":   error,
         }, indent=2))
 
 
