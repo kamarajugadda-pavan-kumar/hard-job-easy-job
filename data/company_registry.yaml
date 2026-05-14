@@ -1,0 +1,28 @@
+# Known company careers pages.
+# New entries are appended automatically when a company is scraped for the first time.
+# ats: greenhouse | lever | workday | ashby | smartrecruiters | custom
+
+EY:
+  careers_url: "https://careers.ey.com/ey/search/?createNewAlert=false&q=&optionsFacetsDD_customfield1=Consulting&optionsFacetsDD_country=IN&optionsFacetsDD_city="
+  ats: EY
+  last_scraped_at: null
+
+# openai:
+#   careers_url: "https://openai.com/careers"
+#   ats: greenhouse
+#   last_scraped_at: null
+
+# anthropic:
+#   careers_url: "https://www.anthropic.com/careers"
+#   ats: greenhouse
+#   last_scraped_at: null
+
+# notion:
+#   careers_url: "https://www.notion.so/careers"
+#   ats: lever
+#   last_scraped_at: null
+
+# linear:
+#   careers_url: "https://linear.app/careers"
+#   ats: ashby
+#   last_scraped_at: null
