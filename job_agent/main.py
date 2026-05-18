@@ -117,6 +117,7 @@ def list_cmd(
     table.add_column("Title")
     table.add_column("Score",   justify="right")
     table.add_column("Status",  style="magenta")
+    table.add_column("URL",     style="blue")
 
     for job in jobs:
         table.add_row(
@@ -125,6 +126,7 @@ def list_cmd(
             job.title,
             f"{job.match_score:.0f}%" if job.match_score else "—",
             job.status.value,
+            job.url or "—",
         )
 
     console.print(table)

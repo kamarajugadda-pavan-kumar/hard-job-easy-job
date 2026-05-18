@@ -72,9 +72,23 @@ class ScraperFactory:
         self.max_attempts = max_attempts
 
     async def run(self) -> list[JobPosting]:
+        existing_path = script_path(self.url)
+        if existing_path.exists():
+            print(f"  [cache] Using existing script: {existing_path}")
+            result = run_script(existing_path, self.url)
+            if result.success:
+                print(f"  Found {len(result.jobs)} jobs.")
+                print("these arethe jobs", result.jobs)
+                return _dicts_to_postings(result.jobs)
+            print(f"  [cache] Existing script failed: {result.error.splitlines()[0]}")
+            print("  Regenerating script from scratch...")
+            previous_script = existing_path.read_text()
+            previous_error  = result.error
+        else:
+            previous_script = ""
+            previous_error  = ""
+
         analysis, screenshot, html = await analyse_page(self.url)
-        previous_script = ""
-        previous_error  = ""
 
         for attempt in range(1, self.max_attempts + 1):
             print(f"[{attempt}/{self.max_attempts}] Writing scraper script...")
@@ -89,6 +103,7 @@ class ScraperFactory:
 
             if result.success:
                 print(f"  Found {len(result.jobs)} jobs.")
+                print("these arethe jobs", result.jobs)
                 return _dicts_to_postings(result.jobs)
 
             print(f"  Failed: {result.error.splitlines()[0]}")
@@ -116,11 +131,30 @@ class ScraperFactory:
         }, indent=2))
 
 
+def _company_from_url(url: str) -> str:
+    """'https://careers.ey.com/...' → 'EY',  'https://stripe.com/...' → 'Stripe'"""
+    from urllib.parse import urlparse
+    try:
+        host = urlparse(url).netloc.replace("www.", "")  # e.g. "careers.ey.com"
+        name = host.split(".")[-2]                        # "ey"
+        return name.upper() if len(name) <= 4 else name.capitalize()
+    except Exception:
+        return ""
+
+
 def _dicts_to_postings(raw: list[dict]) -> list[JobPosting]:
     postings = []
     for d in raw:
+        # Drop None values so Pydantic uses field defaults instead of rejecting them
+        d = {k: v for k, v in d.items() if v is not None}
+        # Skip cards where the scraper failed to extract a title
+        if not d.get("title"):
+            continue
+        # Derive company from the job URL when the listing page omits it
+        if not d.get("company") and d.get("url"):
+            d["company"] = _company_from_url(d["url"])
         try:
             postings.append(JobPosting(**d))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"  [warn] skipped job dict: {e} | keys={list(d.keys())} | sample={str(d)[:200]}")
     return postings

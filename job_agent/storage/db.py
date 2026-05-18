@@ -115,8 +115,10 @@ def content_hash_exists(content_hash: str) -> bool:
 
 def _row_to_job(row: sqlite3.Row) -> JobPosting:
     d = dict(row)
-    d["required_skills"] = json.loads(d.get("required_skills") or "[]")
-    d["nice_to_have"]    = json.loads(d.get("nice_to_have") or "[]")
-    d["match_gaps"]      = json.loads(d.get("match_gaps") or "[]")
-    d["match_strengths"] = json.loads(d.get("match_strengths") or "[]")
+    d["required_skills"]  = json.loads(d.get("required_skills") or "[]")
+    d["nice_to_have"]     = json.loads(d.get("nice_to_have") or "[]")
+    d["match_gaps"]       = json.loads(d.get("match_gaps") or "[]")
+    d["match_strengths"]  = json.loads(d.get("match_strengths") or "[]")
+    d["match_reasoning"]  = d.get("match_reasoning") or ""
+    d["notes"]            = d.get("notes") or ""
     return JobPosting(**d)
