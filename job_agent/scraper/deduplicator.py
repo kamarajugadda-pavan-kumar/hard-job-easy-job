@@ -27,7 +27,9 @@ def deduplicate_and_save(jobs: list[JobPosting]) -> list[JobPosting]:
     for job in jobs:
         if job.url and url_exists(job.url):
             continue
-        if content_hash_exists(job.content_hash):
+        # Only use content_hash as fallback when there's no URL —
+        # avoids falsely deduplicating jobs that share a title but have distinct URLs.
+        if not job.url and content_hash_exists(job.content_hash):
             continue
         insert_job(job)
         new_jobs.append(job)

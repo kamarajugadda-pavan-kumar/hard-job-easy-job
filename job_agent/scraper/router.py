@@ -30,7 +30,7 @@ def detect_mode(raw: str) -> InputMode:
     return InputMode.COMPANY_NAME
 
 
-async def route_input(raw: str) -> list[JobPosting]:
+async def route_input(raw: str, force_single: bool = False) -> list[JobPosting]:
     """
     Top-level entry point called by the CLI.
     Detects mode and delegates to the appropriate handler.
@@ -42,11 +42,11 @@ async def route_input(raw: str) -> list[JobPosting]:
         from job_agent.scraper.registry import resolve_company_url
         from job_agent.scraper.router import route_input
         url = await resolve_company_url(raw.strip())
-        return await route_input(url)          # re-enter as URL mode
+        return await route_input(url, force_single=force_single)
 
     if mode == InputMode.URL:
         from job_agent.scraper.url_handler import handle_url
-        return await handle_url(raw.strip())
+        return await handle_url(raw.strip(), force_single=force_single)
 
     if mode == InputMode.RAW_TEXT:
         from job_agent.scraper.text_parser import parse_raw_text

@@ -45,8 +45,12 @@ def scrape(
     company: Annotated[Optional[str], typer.Option("--company", "-c")] = None,
     url:     Annotated[Optional[str], typer.Option("--url",     "-u")] = None,
     text:    Annotated[Optional[str], typer.Option("--text",    "-t")] = None,
+    single:  Annotated[bool,          typer.Option("--single"        )] = False,
 ):
-    """Scrape jobs from a company name, URL, or raw text file."""
+    """Scrape jobs from a company name, URL, or raw text file.
+
+    Pass --single to treat the URL as an individual job posting rather than a listings page.
+    """
     from job_agent.scraper.router import route_input
 
     if company:
@@ -60,7 +64,7 @@ def scrape(
         console.print("[red]Provide --company, --url, or --text[/red]")
         raise typer.Exit(1)
 
-    new_jobs = asyncio.run(route_input(raw_input))
+    new_jobs = asyncio.run(route_input(raw_input, force_single=single))
     console.print(f"[green]{len(new_jobs)} new job(s) saved.[/green]")
 
 

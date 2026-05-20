@@ -1,0 +1,29 @@
+{
+  "url": "https://careers.teradata.com/jobs?location=Hyderabad%2C+India&location=Bengaluru%2C+India&location=Pune%2C+India&location=Bangalore+-+Virtual%2C+India",
+  "page_type": "listing",
+  "requires_javascript": false,
+  "job_card_selector": "article[data-testid='job-card']",
+  "title_selector": ".title-86",
+  "link_selector": ".titleLink-87",
+  "location_selector": ".root-150",
+  "pagination_type": "none",
+  "pagination_selector": null,
+  "filter_controls": [
+    "location",
+    "team",
+    "category",
+    "workplace type",
+    "date posted"
+  ],
+  "total_jobs_visible": 1,
+  "selectors_found": true,
+  "notes": "The job card structure is clearly visible with specific classes for job elements. No pagination is observed in the given HTML.",
+  "scraper_mode": "dom",
+  "api_endpoint": null,
+  "api_method": "GET",
+  "api_headers": {},
+  "api_post_data": null,
+  "api_sample_record": null,
+  "api_list_path": null,
+  "api_observed_job_url": null
+}
